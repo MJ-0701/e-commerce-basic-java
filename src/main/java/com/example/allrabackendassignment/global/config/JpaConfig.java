@@ -1,4 +1,4 @@
-package com.example.allrabackendassignment.config;
+package com.example.allrabackendassignment.global.config;
 
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.jpa.repository.config.EnableJpaAuditing;

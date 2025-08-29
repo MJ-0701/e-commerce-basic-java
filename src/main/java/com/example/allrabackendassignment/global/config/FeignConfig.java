@@ -1,4 +1,4 @@
-package com.example.allrabackendassignment.config;
+package com.example.allrabackendassignment.global.config;
 
 import feign.codec.Decoder;
 import feign.codec.ErrorDecoder;

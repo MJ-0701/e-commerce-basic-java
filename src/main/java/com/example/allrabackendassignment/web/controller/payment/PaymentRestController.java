@@ -1,7 +1,6 @@
 package com.example.allrabackendassignment.web.controller.payment;
 
-import com.example.allrabackendassignment.external.PaymentFeignClient;
-import com.example.allrabackendassignment.http.ResponseObject;
+import com.example.allrabackendassignment.global.http.ResponseObject;
 import com.example.allrabackendassignment.service.PaymentService;
 import com.example.allrabackendassignment.web.dto.external.PaymentRequest;
 import com.example.allrabackendassignment.web.dto.external.PaymentResponse;

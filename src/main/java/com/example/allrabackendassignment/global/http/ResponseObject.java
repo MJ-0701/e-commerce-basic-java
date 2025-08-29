@@ -1,5 +1,8 @@
-package com.example.allrabackendassignment.http;
+package com.example.allrabackendassignment.global.http;
 
+import lombok.Getter;
+
+@Getter
 public class ResponseObject<T> {
 
     private final int code;
@@ -24,16 +27,4 @@ public class ResponseObject<T> {
         return new ResponseObject<>(code, message, null);
     }
 
-    // getter
-    public int getCode() {
-        return code;
-    }
-
-    public String getMessage() {
-        return message;
-    }
-
-    public T getResult() {
-        return result;
-    }
 }

@@ -1,6 +1,6 @@
 package com.example.allrabackendassignment.external;
 
-import com.example.allrabackendassignment.config.FeignConfig;
+import com.example.allrabackendassignment.global.config.FeignConfig;
 import com.example.allrabackendassignment.web.dto.external.PaymentRequest;
 import com.example.allrabackendassignment.web.dto.external.PaymentResponse;
 import org.springframework.cloud.openfeign.FeignClient;

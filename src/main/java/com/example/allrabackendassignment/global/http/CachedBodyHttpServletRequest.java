@@ -1,4 +1,4 @@
-package com.example.allrabackendassignment.http;
+package com.example.allrabackendassignment.global.http;
 
 import jakarta.servlet.ReadListener;
 import jakarta.servlet.ServletInputStream;
