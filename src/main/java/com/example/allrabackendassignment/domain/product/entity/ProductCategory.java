@@ -25,4 +25,7 @@ public class ProductCategory {
 
     @Column(name = "category")
     private String category;
+
+    @Column(name = "search_text", columnDefinition = "varchar(100) not null")
+    private String searchText;
 }

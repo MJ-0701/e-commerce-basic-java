@@ -20,9 +20,11 @@ create table product_category(
     collate = utf8mb4_bin
 ;
 
+alter table product_category add column search_text varchar(100) not null default '검색필드';
+
 create table product_img_details(
     id bigint auto_increment primary key,
-    type varchar(50) default 'DETAIL' comment 'DETAIL(상품상세), ASSET(유의사항 이미지 등)',
+    type varchar(10) default 'DETAIL' comment 'DETAIL(상품상세), ASSET(유의사항 이미지 등)',
     img_url text default null comment '과제용 이므로 이미지가 업로드 됐다고 가정'
 
 ) comment '상품 상세 이미지 및 asset'
@@ -30,7 +32,7 @@ create table product_img_details(
     collate = utf8mb4_bin
 ;
 
-alter table product_img_details modify column type varchar(10);
+# alter table product_img_details modify column type varchar(10);
 
 create table product_img_details_mapping(
     id bigint auto_increment primary key,
@@ -51,3 +53,7 @@ create table product(
     default char set = utf8mb4
     collate = utf8mb4_bin
 ;
+
+# alter table product drop column img_details_mapping;
+alter table product add column is_active boolean default true after category_id;
+alter table product add column stock int unsigned default 100 after is_active;

@@ -8,6 +8,8 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.DynamicInsert;
 import org.hibernate.annotations.DynamicUpdate;
 
+import java.util.List;
+
 @Entity
 @NoArgsConstructor
 @AllArgsConstructor
@@ -27,5 +29,14 @@ public class ProductImgDetails {
     private ProductDetailImgType productDetailImgType;
 
     @Column(name = "img_url")
-    private String imgUrl = "";
+    private String imgUrl;
+
+    @OneToMany(
+            fetch = FetchType.LAZY,
+            cascade = CascadeType.ALL,
+            orphanRemoval = true,
+            mappedBy = "productImgDetails"
+    )
+    private List<ProductImgDetailsMapping> productImgDetailsMapping;
+
 }
