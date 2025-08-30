@@ -27,6 +27,9 @@ public class Product extends BaseTimeEntity {
     @Column(name = "product_price", columnDefinition = "int unsigned not null default 1000")
     private int productPrice;
 
+    @Column(name = "product_thumbnail", columnDefinition = "text default null")
+    private String productThumbnail;
+
     @Column(name = "category_id")
     private Long categoryId;
 
