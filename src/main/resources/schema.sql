@@ -1,3 +1,5 @@
+# ---------- User ----------
+
 create table user(
     user_id bigint auto_increment primary key,
     name varchar(100) not null
@@ -5,6 +7,8 @@ create table user(
     default char set = utf8mb4
     collate = utf8mb4_bin
 ;
+
+# ---------- Product ----------
 
 create table product_category(
     category_id bigint auto_increment primary key,
@@ -40,7 +44,6 @@ create table product(
     product_price int unsigned not null default 1000,
     product_thumbnail text default null comment '쌈네일 이미지 url -> 과제용 이므로 이미지가 업로드 됐다고 가정',
     category_id bigint comment '상품 카테고리' references product_category(category_id) ,
-    img_details_mapping bigint comment '상품상세 이미지 리스트 및 유의사항 등 asset' references product_img_details_mapping(id) ,
     created_at timestamp default current_timestamp,
     updated_at timestamp default current_timestamp on update current_timestamp
 
