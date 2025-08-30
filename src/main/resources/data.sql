@@ -9,7 +9,7 @@ TRUNCATE TABLE user;
 SET FOREIGN_KEY_CHECKS = 1;
 
 -- 1) User
-INSERT INTO user (name) VALUES
+INSERT INTO `user` (name) VALUES
                             ('김민수'),('이서연'),('박지훈'),('최유진'),('정우영'),
                             ('한지민'),('오세훈'),('유나영'),('장도윤'),('서지호');
 

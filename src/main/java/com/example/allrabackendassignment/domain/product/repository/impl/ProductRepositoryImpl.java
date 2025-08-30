@@ -4,7 +4,7 @@ import com.example.allrabackendassignment.domain.product.entity.Product;
 import com.example.allrabackendassignment.domain.product.entity.QProduct;
 import com.example.allrabackendassignment.domain.product.entity.QProductCategory;
 import com.example.allrabackendassignment.domain.product.repository.custom.ProductCustomRepository;
-import com.example.allrabackendassignment.domain.product.repository.support.QueryDslPageAndSort;
+import com.example.allrabackendassignment.global.common.support.QueryDslPageAndSort;
 import com.example.allrabackendassignment.web.dto.internal.product.request.ProductSearchConditionDto;
 import com.example.allrabackendassignment.web.dto.internal.product.response.ProductSearchResponseDto;
 import com.querydsl.core.BooleanBuilder;
@@ -12,8 +12,6 @@ import com.querydsl.core.types.Projections;
 import com.querydsl.jpa.JPQLQuery;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import jakarta.persistence.EntityManager;
-import lombok.NoArgsConstructor;
-import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 

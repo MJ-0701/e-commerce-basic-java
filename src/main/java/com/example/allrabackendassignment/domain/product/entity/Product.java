@@ -1,5 +1,6 @@
 package com.example.allrabackendassignment.domain.product.entity;
 
+import com.example.allrabackendassignment.domain.cart.entity.CartItems;
 import com.example.allrabackendassignment.global.entity.BaseTimeEntity;
 import jakarta.persistence.*;
 import lombok.*;
@@ -50,5 +51,13 @@ public class Product extends BaseTimeEntity {
             mappedBy = "product"
     )
     private List<ProductImgDetailsMapping> productImgDetailsMapping;
+
+    @OneToMany(
+            fetch = FetchType.LAZY,
+            cascade = CascadeType.ALL,
+            orphanRemoval = true,
+            mappedBy = "product"
+    )
+    private List<CartItems> cartItems;
 
 }
