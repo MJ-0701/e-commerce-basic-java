@@ -1,4 +1,4 @@
-package com.example.allrabackendassignment.domain.product.repository.support;
+package com.example.allrabackendassignment.global.common.support;
 
 import com.querydsl.core.types.dsl.PathBuilder;
 import com.querydsl.core.types.dsl.PathBuilderFactory;

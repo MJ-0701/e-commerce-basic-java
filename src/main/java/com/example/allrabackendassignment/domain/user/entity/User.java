@@ -8,7 +8,7 @@ import lombok.*;
 @AllArgsConstructor(access = AccessLevel.PUBLIC)
 @Getter
 @Builder
-@Table(name = "user", schema = "code_interview")
+@Table(name = "`user`", schema = "code_interview")
 public class User {
 
     @Id

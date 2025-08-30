@@ -64,3 +64,16 @@ WHERE 1=1
         OR pc.upper_category LIKE CONCAT('%', :q, '%')
         OR pc.search_text  LIKE CONCAT('%', :q, '%')
     );
+
+
+SELECT *
+FROM `user`
+;
+
+select *
+from cart
+;
+
+select *
+from cart_items
+;
