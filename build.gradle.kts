@@ -48,6 +48,9 @@ dependencies {
     annotationProcessor("org.projectlombok:lombok")
     testCompileOnly("org.projectlombok:lombok")
     testAnnotationProcessor("org.projectlombok:lombok")
+
+    // h2
+    runtimeOnly("com.h2database:h2")
 }
 
 val querydslDir = layout.buildDirectory.dir("generated/sources/annotationProcessor/java/main")

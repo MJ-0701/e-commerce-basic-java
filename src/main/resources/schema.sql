@@ -1,50 +1,61 @@
-create table user(
-    user_id bigint auto_increment primary key,
-    name varchar(100) not null
-) comment '더미용 유저 테이블'
-    default char set = utf8mb4
-    collate = utf8mb4_bin
-;
+-- product_img_details_mapping
+CREATE TABLE IF NOT EXISTS product_img_details_mapping (
+                                                           id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                                                           product_img_details_id BIGINT NOT NULL,
+                                                           product_id BIGINT NOT NULL,
+                                                           CONSTRAINT fk_pim_details
+                                                               FOREIGN KEY (product_img_details_id) REFERENCES product_img_details(id)
+                                                                   ON UPDATE CASCADE ON DELETE CASCADE,
+                                                           CONSTRAINT fk_pim_product
+                                                               FOREIGN KEY (product_id) REFERENCES product(product_id)
+                                                                   ON UPDATE CASCADE ON DELETE CASCADE,
+                                                           INDEX idx_pim_product_id (product_id),
+                                                           INDEX idx_pim_details_id (product_img_details_id)
+) ENGINE=InnoDB
+  DEFAULT CHARACTER SET = utf8mb4
+  COLLATE = utf8mb4_bin;
 
-create table product_category(
-    category_id bigint auto_increment primary key,
-    upper_category varchar(30) default null comment '상위 카테고리(ex.VEG(야채),SEAFOOD(해산물), MEAT(정육) ...)',
-    category varchar(50) not null comment '해당 카테고리(ex. POTATO(감자), FISH(생선), PORK(돼지고기))'
+-- product_img_details
+CREATE TABLE IF NOT EXISTS product_img_details (
+                                                   id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                                                   type VARCHAR(10) DEFAULT 'DETAIL' COMMENT 'DETAIL(상품상세), ASSET(유의사항 이미지 등)',
+                                                   img_url TEXT DEFAULT NULL COMMENT '과제용 이므로 이미지가 업로드 됐다고 가정',
+                                                   INDEX idx_pid_type (type)
+) COMMENT='상품 상세 이미지 및 asset'
+    ENGINE=InnoDB
+    DEFAULT CHARACTER SET = utf8mb4
+    COLLATE = utf8mb4_bin;
 
-) comment '상품 카테고리 테이블'
-    default char set = utf8mb4
-    collate = utf8mb4_bin
-;
+-- product_category
+CREATE TABLE IF NOT EXISTS product_category (
+                                                category_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                                                upper_category VARCHAR(30) DEFAULT NULL COMMENT '상위 카테고리',
+                                                category VARCHAR(50) NOT NULL COMMENT '하위 카테고리',
+                                                search_text VARCHAR(100) NOT NULL DEFAULT '검색필드',
+                                                INDEX idx_pc_category (category),
+                                                INDEX idx_pc_search_text (search_text),
+                                                FULLTEXT INDEX ft_pc_search_text (search_text)
+) COMMENT='상품 카테고리 테이블'
+    ENGINE=InnoDB
+    DEFAULT CHARACTER SET = utf8mb4
+    COLLATE = utf8mb4_bin;
 
-create table product_img_details(
-    id bigint auto_increment primary key,
-    type varchar(50) default 'DETAIL' comment 'DETAIL(상품상세), ASSET(유의사항 이미지 등)',
-    img_url text default null comment '과제용 이므로 이미지가 업로드 됐다고 가정'
-
-) comment '상품 상세 이미지 및 asset'
-    default char set = utf8mb4
-    collate = utf8mb4_bin
-;
-
-alter table product_img_details modify column type varchar(10);
-
-create table product_img_details_mapping(
-    id bigint auto_increment primary key,
-    product_img_details_id bigint references product_img_details(id),
-    product_id bigint references product(product_id)
-);
-
-create table product(
-    product_id bigint auto_increment primary key,
-    product_name varchar(100) not null,
-    product_price int unsigned not null default 1000,
-    product_thumbnail text default null comment '쌈네일 이미지 url -> 과제용 이므로 이미지가 업로드 됐다고 가정',
-    category_id bigint comment '상품 카테고리' references product_category(category_id) ,
-    img_details_mapping bigint comment '상품상세 이미지 리스트 및 유의사항 등 asset' references product_img_details_mapping(id) ,
-    created_at timestamp default current_timestamp,
-    updated_at timestamp default current_timestamp on update current_timestamp
-
-) comment '상품 테이블'
-    default char set = utf8mb4
-    collate = utf8mb4_bin
-;
+-- product
+CREATE TABLE IF NOT EXISTS product (
+                                       product_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                                       product_name VARCHAR(100) NOT NULL,
+                                       product_price INT UNSIGNED NOT NULL DEFAULT 1000,
+                                       product_thumbnail TEXT DEFAULT NULL,
+                                       category_id BIGINT,
+                                       is_active BOOLEAN DEFAULT TRUE,
+                                       stock INT UNSIGNED DEFAULT 100,
+                                       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                                       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                                       CONSTRAINT fk_product_category
+                                           FOREIGN KEY (category_id) REFERENCES product_category(category_id)
+                                               ON UPDATE CASCADE ON DELETE SET NULL,
+                                       INDEX idx_product_category_id (category_id)
+) COMMENT='상품 테이블'
+    ENGINE=InnoDB
+    DEFAULT CHARACTER SET = utf8mb4
+    COLLATE = utf8mb4_bin;
