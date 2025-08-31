@@ -30,7 +30,7 @@ public class PaymentTransaction {
     @JoinColumn(name = "order_id", insertable = false, updatable = false)
     private Orders order;
 
-    @Column(name = "tid", nullable = false)
+    @Column(name = "tid", nullable = true)
     private String tid;
 
     @Column(name = "pg_code", columnDefinition = "varchar(50) default 'credit_cart'")
@@ -51,4 +51,8 @@ public class PaymentTransaction {
     @CreatedDate
     @Column(name = "created_at", updatable = false, columnDefinition = "timestamp default current_timestamp")
     private LocalDateTime createdAt;
+
+    public void updateTid(String tid) {
+        this.tid = tid;
+    }
 }

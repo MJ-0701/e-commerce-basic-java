@@ -1,5 +1,6 @@
 package com.example.allrabackendassignment.global.http.exception;
 
+import com.example.allrabackendassignment.global.http.ErrorCode;
 import com.example.allrabackendassignment.global.http.exception.InsufficientStockException;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
@@ -104,6 +105,22 @@ public class GlobalExceptionHandler {
                 : ((ResponseStatusException) ex).getStatusCode();
         ProblemDetail pd = base(HttpStatus.valueOf(status.value()), ex.getClass().getSimpleName(), ex.getMessage(), req, ex);
         return ResponseEntity.status(status).body(pd);
+    }
+
+    @ExceptionHandler(BusinessException.class)
+    public ResponseEntity<Map<String, Object>> handleBusiness(BusinessException ex) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("code", ex.getErrorCode().getCode());
+        body.put("message", ex.getErrorCode().getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+    }
+
+    @ExceptionHandler(PaymentBadRequestException.class)
+    public ResponseEntity<Map<String, Object>> handlePaymentRaw(PaymentBadRequestException ex) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("code", ErrorCode.PAYMENT_FAILED.getCode());
+        body.put("message", ex.getRawBody() != null ? ex.getRawBody() : ErrorCode.PAYMENT_FAILED.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
     }
 
     // ====== 알 수 없는 예외: 500 ======

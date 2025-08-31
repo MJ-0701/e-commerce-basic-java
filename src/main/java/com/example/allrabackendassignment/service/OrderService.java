@@ -1,139 +1,107 @@
 package com.example.allrabackendassignment.service;
 
-import com.example.allrabackendassignment.domain.order.entity.*;
-import com.example.allrabackendassignment.domain.order.repository.OrderHistoriesRepository;
-import com.example.allrabackendassignment.domain.order.repository.OrderItemsRepository;
-import com.example.allrabackendassignment.domain.order.repository.OrdersRepository;
-import com.example.allrabackendassignment.domain.product.entity.Product;
-import com.example.allrabackendassignment.domain.product.repository.ProductRepository;
-import com.example.allrabackendassignment.event.OrderCreatedEvent;
-import com.example.allrabackendassignment.global.http.exception.InsufficientStockException;
+import com.example.allrabackendassignment.domain.order.entity.Orders;
+import com.example.allrabackendassignment.domain.payment.entity.PaymentTransaction;
+import com.example.allrabackendassignment.global.http.ErrorCode;
+import com.example.allrabackendassignment.global.http.exception.BusinessException;
 import com.example.allrabackendassignment.web.dto.external.PaymentRequest;
+import com.example.allrabackendassignment.web.dto.external.PaymentResultMessage;
 import com.example.allrabackendassignment.web.dto.internal.order.request.OrderItemRequest;
-import com.example.allrabackendassignment.web.dto.internal.order.request.OrderRequest;
 import lombok.RequiredArgsConstructor;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
-
+/**
+ * 오케스트레이션 전용 서비스 (비트랜잭션):
+ * 1) OrderTxService.createOrderRecords() 호출 → 커밋 보장
+ * 2) PaymentService.processPaymentWithRetrySync() 호출 (동기, 재시도 포함)
+ * 3) 결과에 따라 OrderTxService.markOrderPaid/Failed() (REQUIRES_NEW로 각각 커밋)
+ */
 @Service
 @RequiredArgsConstructor
 public class OrderService {
 
-    private final OrdersRepository ordersRepository;
-    private final OrderHistoriesRepository orderHistoriesRepository;
-    private final OrderItemsRepository orderItemsRepository;
-    private final ProductRepository productRepository;
-    private final ApplicationEventPublisher eventPublisher;
+    private final OrderTxService orderTxService;
+    private final PaymentService paymentService;
 
-    /**
-     * 유저기능은 이미 구현돼 있다고 가정 (JWT 토큰에서 유저 정보를 가져온다)
-     */
+    public OrderCreateResponse createOrderOrchestrator(OrderItemRequest orderItemRequest) {
+        // 1) 주문 생성 트랜잭션 커밋
+        Orders created = orderTxService.createOrderRecords(orderItemRequest);
 
-    @Transactional
-    public void createOrder(OrderItemRequest orderItemRequest) {
-
-        // 0) 같은 상품이 리스트에 중복으로 들어올 수 있으니 productId 기준으로 수량 합산(안전장치)
-        Map<Long, Integer> requestedQtyByProductId = orderItemRequest.items().stream()
-                .collect(Collectors.toMap(
-                        OrderItemRequest.CartItemRequest::productId,
-                        OrderItemRequest.CartItemRequest::quantity,
-                        Integer::sum
-                ));
-
-        // 1) 재고 검증 & 차감 (비관적 락으로 동시성 방어)
-        Map<Long, Product> lockedProducts = new HashMap<>();
-        for (Map.Entry<Long, Integer> e : requestedQtyByProductId.entrySet()) {
-            Long productId = e.getKey();
-            int needQty = e.getValue();
-
-            Product product = productRepository.findByIdForUpdate(productId)
-                    .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다. productId=" + productId));
-
-            if (Boolean.FALSE.equals(product.getIsActive())) {
-                throw new IllegalStateException("비활성 상품입니다. productId=" + productId);
-            }
-            int available = product.getStock();
-            if (available < needQty) {
-                throw new InsufficientStockException(productId, needQty, available); // RuntimeException → 전체 롤백
-            }
-
-            product.decreaseStock(needQty); // @DynamicUpdate로 필요한 컬럼만 업데이트
-            lockedProducts.put(productId, product);
-        }
-
-        OrderRequest orderRequest = new OrderRequest(
-                GeneratedUUID.create("OID", LocalDateTime.now()),
-                generateOrderName(orderItemRequest.items()),
-                "김민수",
-                1L,
-                OrderStatus.CREATED,
-                orderItemRequest.totalOrderPrice(),
-                orderItemRequest.totalOrderPrice(), // 할인로직 정책이 없으므로 일단은 총합과 실 결제금액은 같다.
-                0, // 초기 주문생성 시점에 환불금액은 0
-                false // 전체환불여부
+        // 2) 결제 요청 본문 구성
+        PaymentRequest paymentReq = new PaymentRequest(
+                created.getOrderId().toString(),
+                created.getPaidAmount()
         );
 
-        Orders ordersEntity = Orders
-                .builder()
-                .orderId(orderRequest.orderId())
-                .orderName(orderRequest.orderName())
-                .userName(orderRequest.userName())
-                .userId(orderRequest.userId())
-                .orderStatus(orderRequest.orderStatus())
-                .totalAmount(orderRequest.totalAmount())
-                .paidAmount(orderRequest.paidAmount())
-                .canceledAmount(orderRequest.canceledAmount())
-                .isFullyCanceled(orderRequest.isFullyCanceled())
-                .build();
+        // 2-1) 결제 트랜잭션 레코드 생성 + 최초 REQUEST 이력 기록
+        var paymentTx = paymentService.createPaymentTransaction(
+                created.getId(),
+                created.getPaidAmount(),
+                paymentReq
+        );
 
-        Orders orders = ordersRepository.save(ordersEntity);
+        // 2-2) 결제 처리 (동기 + RabbitMQ 재시도 정책 적용)
+        PaymentResultMessage result;
+        try {
+            result = paymentService.processPaymentWithRetrySync(
+                    created.getId(),
+                    created.getOrderId().toString(),
+                    created.getPaidAmount(),
+                    paymentReq
+            );
+        } catch (Exception e) {
+            // 예외 상황도 실패로 간주하여 동일한 후처리 + 비즈니스 예외로 변환
+            paymentService.markTransactionFailed(paymentTx, "PAYMENT_INTERNAL_ERROR");
+            orderTxService.markOrderPaymentFailed(created.getId(), "PAYMENT_INTERNAL_ERROR");
+            orderTxService.compensateOrderCreation(created.getId());
+            throw new BusinessException(ErrorCode.PAYMENT_GATEWAY_ERROR, "결제 처리 중 내부 오류");
+        }
 
-        OrderHistories orderHistoriesEntity = OrderHistories
-                .builder()
-                .orderId(orders.getId())
-                .changedBy("SYSTEM")
-                .message("주문생성")
-                .status(OrderStatus.CREATED)
-                .build();
-        orderHistoriesRepository.save(orderHistoriesEntity);
+        // 3) 결과에 따른 상태 업데이트 (각각 독립 커밋)
+        if (result.success()) {
+            // ★ 성공: 트랜잭션에 TID 반영하고 반환값에도 포함
+            String tid = paymentService.markTransactionCompleted(paymentTx, result.response());
 
-        List<OrderItems> orderItems = orderItemRequest.items().stream()
-                .map(i -> OrderItems.builder()
-                        .orderId(orders.getId())
-                        .productId(i.productId())
-                        .quantity(i.quantity())
-                        .unitPrice(i.unitPrice())
-                        .totalPrice(i.totalPrice())
-                        .build())
-                .toList();
+            // (원래 로직 유지) 주문 상태 COMPLETED 처리
+            orderTxService.markOrderPaid(created.getId());
 
-        orderItemsRepository.saveAll(orderItems);
+            return new OrderCreateResponse(created.getOrderId().toString(), true, null, tid);
+        } else {
+            // (원래 로직 유지) 실패 로그 & 주문 실패 처리
+            paymentService.markTransactionFailed(paymentTx, result.failureReason());
+            orderTxService.markOrderPaymentFailed(created.getId(), result.failureReason());
+            // 보상 트랜잭션: 재고 원복 + 주문 CANCELED
+            orderTxService.compensateOrderCreation(created.getId());
 
-        // 결제요청은 같은 트랜잭션에서 호출하지 않고, 커밋 이후에 처리하도록 이벤트 발행
-        eventPublisher.publishEvent(new OrderCreatedEvent(
-                orders.getOrderId().toString(),
-                orders.getPaidAmount()
-        ));
-
-
-
+            // ✅ 여기서 200을 리턴하지 않고 비즈니스 예외로 변환해 던짐
+            throw new BusinessException(mapPaymentFailure(result.failureReason()), result.failureReason());
+        }
     }
 
-    public static String generateOrderName(List<OrderItemRequest.CartItemRequest> orderItems) {
-        if (orderItems == null || orderItems.isEmpty()) {
-            return "상품 없음";
-        }
-        if (orderItems.size() == 1) {
-            return orderItems.get(0).productName();
-        }
+    /** PG/재시도 사유를 프로젝트의 ErrorCode로 매핑 */
+    private ErrorCode mapPaymentFailure(String reason) {
+        if (reason == null) return ErrorCode.PAYMENT_FAILED;
+        String r = reason.toUpperCase();
+
+        // 재시도 소진/타임아웃류
+        if (r.contains("TIMEOUT") || r.contains("EXHAUSTED_RETRY")) return ErrorCode.PAYMENT_TIMEOUT;
+
+        // PG 400류
+        if (r.startsWith("HTTP_400") || r.contains("BAD_REQUEST")) return ErrorCode.PG_BAD_REQUEST;
+
+        // PG/통신 오류류(HTTP_5xx 등)
+        if (r.startsWith("HTTP_") || r.contains("PG") || r.contains("GATEWAY")) return ErrorCode.PAYMENT_GATEWAY_ERROR;
+
+        // 그 외 일반 실패
+        return ErrorCode.PAYMENT_FAILED;
+    }
+
+    // 유틸
+    public static String generateOrderName(java.util.List<com.example.allrabackendassignment.web.dto.internal.order.request.OrderItemRequest.CartItemRequest> orderItems) {
+        if (orderItems == null || orderItems.isEmpty()) return "상품 없음";
+        if (orderItems.size() == 1) return orderItems.get(0).productName();
         return orderItems.get(0).productName() + " 외 " + (orderItems.size() - 1) + "개";
     }
 
+    public record OrderCreateResponse(String orderId, boolean paymentSuccess, String failureReason, String transactionId ) {}
 }
