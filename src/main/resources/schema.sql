@@ -163,7 +163,7 @@ CREATE TABLE IF NOT EXISTS order_histories(
     id bigint auto_increment primary key,
     order_id bigint references orders(id),
     status varchar(20) default 'CREATED' comment '주문상태 -> 주문생성, 결제완료, 주문취소',
-    message varchar(20) default '주문 생성' comment '변경시 어디서 왜 변경했는지 로그용 필드',
+    message text comment '변경시 어디서 왜 변경했는지 로그용 필드',
     changed_by varchar(20) default 'SYSTEM' comment '주문생성 : SYSTEM, 결제완료 : PG, 주문취소 : USER OR ADMIN',
     created_at timestamp default current_timestamp,
     updated_at timestamp default current_timestamp on update current_timestamp
@@ -179,7 +179,7 @@ CREATE TABLE IF NOT EXISTS order_histories(
 CREATE TABLE IF NOT EXISTS payment_transaction(
     id bigint auto_increment primary key,
     order_id bigint references orders(id),
-    tid varchar(100) not null comment 'PG사 트랜잭션 ID',
+    tid varchar(100) default null comment 'PG사 트랜잭션 ID',
     pg_code varchar(50) default 'credit_cart' comment '결제수단(신용카드, 무통장입금, 인터넷뱅킹, 카카오페이, 네이버페이, 애플페이, 토스페이, 페이북, 지역화폐 등등)',
     amount int unsigned not null,
     discount_amount int unsigned default 0 comment '할인받은 금액',
@@ -198,8 +198,7 @@ CREATE TABLE IF NOT EXISTS payment_transaction(
 CREATE TABLE IF NOT EXISTS payment_tx_histories(
     id bigint auto_increment primary key,
     transaction_id bigint references payment_transaction(id),
-    status varchar(50) not null default 'REQUEST' comment 'REQUEST : 결제요청, COMPLETE : 결제완료, FAIL : 결제실패',
-    raw_data json default null comment 'PG사 응답 RAW DATA'
+    status varchar(50) not null default 'REQUEST' comment 'REQUEST : 결제요청, COMPLETE : 결제완료, FAIL : 결제실패'
 ) comment '결제 이력관리 테이블'
     ENGINE = InnoDB
     DEFAULT CHAR SET = utf8mb4

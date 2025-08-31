@@ -1,183 +1,155 @@
 package com.example.allrabackendassignment.service;
 
 import com.example.allrabackendassignment.domain.order.entity.GeneratedUUID;
-import com.example.allrabackendassignment.domain.order.entity.OrderHistories;
-import com.example.allrabackendassignment.domain.order.entity.OrderItems;
 import com.example.allrabackendassignment.domain.order.entity.Orders;
-import com.example.allrabackendassignment.domain.order.repository.OrderHistoriesRepository;
-import com.example.allrabackendassignment.domain.order.repository.OrderItemsRepository;
-import com.example.allrabackendassignment.domain.order.repository.OrdersRepository;
-import com.example.allrabackendassignment.domain.product.entity.Product;
-import com.example.allrabackendassignment.domain.product.repository.ProductRepository;
-import com.example.allrabackendassignment.event.OrderCreatedEvent;
-import com.example.allrabackendassignment.global.http.exception.InsufficientStockException;
+import com.example.allrabackendassignment.web.dto.external.PaymentRequest;
+import com.example.allrabackendassignment.web.dto.external.PaymentResultMessage;
 import com.example.allrabackendassignment.web.dto.internal.order.request.OrderItemRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.*;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.context.ApplicationEventPublisher;
 
-import java.util.List;
-import java.util.Optional;
+import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
 
-@org.junit.jupiter.api.extension.ExtendWith(MockitoExtension.class)
+@ExtendWith(MockitoExtension.class)
 class OrderServiceTest {
 
-    @Mock private OrdersRepository ordersRepository;
-    @Mock private OrderHistoriesRepository orderHistoriesRepository;
-    @Mock private OrderItemsRepository orderItemsRepository;
-    @Mock private ProductRepository productRepository;
-    @Mock private ApplicationEventPublisher eventPublisher;
+    @Mock private OrderTxService orderTxService;
+    @Mock private PaymentService paymentService;
 
     @InjectMocks private OrderService orderService;
 
-    private Orders savedOrdersMock;
+    @Captor private ArgumentCaptor<Long> orderPkCaptor;
+    @Captor private ArgumentCaptor<String> orderIdCaptor;
+    @Captor private ArgumentCaptor<Integer> amountCaptor;
+    @Captor private ArgumentCaptor<PaymentRequest> paymentRequestCaptor;
+
+    private Orders createdOrderMock;
+    private Long orderPk;
+    private String orderId;
+    private int paidAmount;
 
     @BeforeEach
     void setUp() {
-        savedOrdersMock = mock(Orders.class);
-        when(savedOrdersMock.getId()).thenReturn(10L);
+        // Orders는 엔티티이므로 Mockito mock으로 안전하게 스텁
+        createdOrderMock = mock(Orders.class);
+        orderPk = 123L;
+        orderId = "OID" +  UUID.randomUUID().toString();
+        paidAmount = 42_000;
 
-        // ✅ 타입에 맞게 GeneratedUUID 객체 리턴
-        when(savedOrdersMock.getOrderId()).thenReturn(new GeneratedUUID("OID-TEST"));
-
-        when(savedOrdersMock.getPaidAmount()).thenReturn(3000);
-        when(ordersRepository.save(any(Orders.class))).thenReturn(savedOrdersMock);
-
-        when(orderHistoriesRepository.save(any(OrderHistories.class)))
-                .thenAnswer(inv -> inv.getArgument(0));
-        when(orderItemsRepository.saveAll(anyList()))
-                .thenAnswer(inv -> inv.getArgument(0));
-    }
-    private OrderItemRequest makeOrderRequest(List<OrderItemRequest.CartItemRequest> items) {
-        return new OrderItemRequest(items); // ← 레코드가 items 하나만 받음
-    }
-
-    private Product makeActiveProduct(long id, int stock) {
-        return Product.builder()
-                .productId(id)
-                .productName("상품#" + id)
-                .productPrice(1000)
-                .isActive(true)
-                .stock(stock)
-                .build();
+        when(createdOrderMock.getId()).thenReturn(orderPk);
+        when(createdOrderMock.getOrderId()).thenReturn(new GeneratedUUID(orderId));
+        when(createdOrderMock.getPaidAmount()).thenReturn(paidAmount);
     }
 
     @Nested
-    @DisplayName("createOrder - 성공")
-    class Success {
+    class CreateOrderOrchestrator {
 
         @Test
-        @DisplayName("중복 상품 수량 집계 → 재고 차감 → 주문/아이템/히스토리 저장 → 이벤트 발행")
-        void createOrder_success() {
-            // given: 같은 상품(1L)이 1개 + 2개 = 총 3개
-            var items = List.of(
-                    new OrderItemRequest.CartItemRequest(1L, "상품A", 1, 1000, 1000),
-                    new OrderItemRequest.CartItemRequest(1L, "상품A", 2, 1000, 2000)
-            );
-            var req = makeOrderRequest(items);
-            assertEquals(3000, req.totalOrderPrice());
+        @DisplayName("결제 성공 시: markOrderPaid 호출 및 성공 응답 반환")
+        void successFlow() {
+            // given
+            OrderItemRequest req = mock(OrderItemRequest.class);
 
-            Product p1 = makeActiveProduct(1L, 10);
-            when(productRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(p1));
+            when(orderTxService.createOrderRecords(req))
+                    .thenReturn(createdOrderMock);
+
+            // PaymentService가 성공 결과를 돌려주도록 스텁
+            PaymentResultMessage success =
+                    PaymentResultMessage.success("corr", orderPk, orderId.toString(), /*response*/ null);
+            when(paymentService.processPaymentWithRetrySync(
+                    anyLong(), anyString(), anyInt(), any(PaymentRequest.class))
+            ).thenReturn(success);
 
             // when
-            orderService.createOrder(req);
+            OrderService.OrderCreateResponse resp = orderService.createOrderOrchestrator(req);
 
-            // then: 재고 10 → 7 (총 3개 차감)
-            assertEquals(7, p1.getStock());
+            // then
+            assertThat(resp.orderId()).isEqualTo(orderId.toString());
+            assertThat(resp.paymentSuccess()).isTrue();
+            assertThat(resp.failureReason()).isNull();
 
-            // 비관적 락 조회는 productId 1번만 호출 (집계 후 한 번)
-            verify(productRepository, times(1)).findByIdForUpdate(1L);
+            // 결제 호출 파라미터 검증
+            verify(paymentService).processPaymentWithRetrySync(
+                    orderPkCaptor.capture(),
+                    orderIdCaptor.capture(),
+                    amountCaptor.capture(),
+                    paymentRequestCaptor.capture()
+            );
+            assertThat(orderPkCaptor.getValue()).isEqualTo(orderPk);
+            assertThat(orderIdCaptor.getValue()).isEqualTo(orderId.toString());
+            assertThat(amountCaptor.getValue()).isEqualTo(paidAmount);
 
-            // 저장 호출 검증
-            verify(ordersRepository, times(1)).save(any(Orders.class));
-            ArgumentCaptor<List<OrderItems>> itemsCaptor = ArgumentCaptor.forClass(List.class);
-            verify(orderItemsRepository, times(1)).saveAll(itemsCaptor.capture());
-            assertEquals(2, itemsCaptor.getValue().size(), "원본 카트 라인 수만큼 저장");
+            PaymentRequest sentReq = paymentRequestCaptor.getValue();
+            assertThat(sentReq.orderId()).isEqualTo(orderId.toString());
+            assertThat(sentReq.amount()).isEqualTo(paidAmount);
 
-            verify(orderHistoriesRepository, times(1)).save(any(OrderHistories.class));
+            // 상태 변경은 성공 분기만 호출
+            verify(orderTxService, times(1)).markOrderPaid(orderPk);
+            verify(orderTxService, never()).markOrderPaymentFailed(anyLong(), anyString());
+        }
 
-            // 이벤트 발행 검증
-            ArgumentCaptor<OrderCreatedEvent> evtCaptor = ArgumentCaptor.forClass(OrderCreatedEvent.class);
-            verify(eventPublisher, times(1)).publishEvent(evtCaptor.capture());
-            OrderCreatedEvent evt = evtCaptor.getValue();
-            assertEquals("OID-TEST", evt.orderPublicId());
-            assertEquals(3000, evt.paidAmount()); // int 가정
+        @Test
+        @DisplayName("결제 실패 시: markOrderPaymentFailed 호출 및 실패 응답 반환")
+        void failureFlow() {
+            // given
+            OrderItemRequest req = mock(OrderItemRequest.class);
+
+            when(orderTxService.createOrderRecords(req))
+                    .thenReturn(createdOrderMock);
+
+            PaymentResultMessage failure =
+                    PaymentResultMessage.failure("corr", orderPk, orderId.toString(), "PAYMENT_FINAL_FAILURE");
+            when(paymentService.processPaymentWithRetrySync(
+                    anyLong(), anyString(), anyInt(), any(PaymentRequest.class))
+            ).thenReturn(failure);
+
+            // when
+            OrderService.OrderCreateResponse resp = orderService.createOrderOrchestrator(req);
+
+            // then
+            assertThat(resp.orderId()).isEqualTo(orderId.toString());
+            assertThat(resp.paymentSuccess()).isFalse();
+            assertThat(resp.failureReason()).isEqualTo("PAYMENT_FINAL_FAILURE");
+
+            verify(orderTxService, times(1))
+                    .markOrderPaymentFailed(eq(orderPk), eq("PAYMENT_FINAL_FAILURE"));
+            verify(orderTxService, never()).markOrderPaid(anyLong());
         }
     }
 
     @Nested
-    @DisplayName("createOrder - 실패/롤백")
-    class Failure {
+    class GenerateOrderNameTest {
 
         @Test
-        @DisplayName("재고 부족 → InsufficientStockException, 저장/이벤트 호출 없음")
-        void insufficientStock_throws() {
-            var items = List.of(
-                    new OrderItemRequest.CartItemRequest(1L, "상품A", 5, 1000, 5000)
-            );
-            var req = makeOrderRequest(items);
-
-            Product p1 = makeActiveProduct(1L, 3);
-            when(productRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(p1));
-
-            assertThrows(InsufficientStockException.class, () -> orderService.createOrder(req));
-
-            verify(ordersRepository, never()).save(any());
-            verify(orderHistoriesRepository, never()).save(any());
-            verify(orderItemsRepository, never()).saveAll(anyList());
-            verify(eventPublisher, never()).publishEvent(any());
+        @DisplayName("주문명: 아이템이 비어있으면 '상품 없음'")
+        void emptyItems() {
+            assertThat(OrderService.generateOrderName(null)).isEqualTo("상품 없음");
+            assertThat(OrderService.generateOrderName(java.util.List.of())).isEqualTo("상품 없음");
         }
 
         @Test
-        @DisplayName("비활성 상품 → IllegalStateException")
-        void inactiveProduct_throws() {
-            var items = List.of(
-                    new OrderItemRequest.CartItemRequest(2L, "상품B", 1, 1000, 1000)
-            );
-            var req = makeOrderRequest(items);
-
-            Product inactive = Product.builder()
-                    .productId(2L)
-                    .productName("상품B")
-                    .productPrice(1000)
-                    .isActive(false)
-                    .stock(100)
-                    .build();
-            when(productRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(inactive));
-
-            assertThrows(IllegalStateException.class, () -> orderService.createOrder(req));
-
-            verify(ordersRepository, never()).save(any());
-            verify(orderHistoriesRepository, never()).save(any());
-            verify(orderItemsRepository, never()).saveAll(anyList());
-            verify(eventPublisher, never()).publishEvent(any());
+        @DisplayName("주문명: 단일 아이템이면 해당 상품명")
+        void singleItem() {
+            var item = new OrderItemRequest.CartItemRequest(1L, "티셔츠", 1, 1000, 1000);
+            assertThat(OrderService.generateOrderName(java.util.List.of(item))).isEqualTo("티셔츠");
         }
 
         @Test
-        @DisplayName("상품 미존재 → IllegalArgumentException")
-        void productNotFound_throws() {
-            var items = List.of(
-                    new OrderItemRequest.CartItemRequest(99L, "없는상품", 1, 1000, 1000)
-            );
-            var req = makeOrderRequest(items);
-
-            when(productRepository.findByIdForUpdate(99L)).thenReturn(Optional.empty());
-
-            assertThrows(IllegalArgumentException.class, () -> orderService.createOrder(req));
-
-            verify(ordersRepository, never()).save(any());
-            verify(orderHistoriesRepository, never()).save(any());
-            verify(orderItemsRepository, never()).saveAll(anyList());
-            verify(eventPublisher, never()).publishEvent(any());
+        @DisplayName("주문명: 2개 이상이면 '첫상품 외 n개'")
+        void multiItems() {
+            var i1 = new OrderItemRequest.CartItemRequest(1L, "티셔츠", 1, 1000, 1000);
+            var i2 = new OrderItemRequest.CartItemRequest(2L, "바지", 1, 2000, 2000);
+            var i3 = new OrderItemRequest.CartItemRequest(3L, "모자", 1, 3000, 3000);
+            assertThat(OrderService.generateOrderName(java.util.List.of(i1, i2, i3)))
+                    .isEqualTo("티셔츠 외 2개");
         }
     }
 }

@@ -77,3 +77,9 @@ from cart
 select *
 from cart_items
 ;
+
+ALTER TABLE payment_transaction
+    MODIFY tid varchar(100) NULL DEFAULT NULL COMMENT 'PG사 트랜잭션 ID';
+
+ALTER TABLE order_histories
+    MODIFY message TEXT comment '변경시 어디서 왜 변경했는지 로그용 필드';
