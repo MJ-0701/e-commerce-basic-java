@@ -60,4 +60,9 @@ public class Product extends BaseTimeEntity {
     )
     private List<CartItems> cartItems;
 
+
+    public void decreaseStock(int quantity) {
+        this.stock -= quantity;
+    }
+
 }
