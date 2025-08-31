@@ -37,7 +37,20 @@ dependencies {
     // rabbitMQ
     implementation("org.springframework.boot:spring-boot-starter-amqp")
 
+    // feign
+    implementation("org.springframework.cloud:spring-cloud-starter-openfeign")
 
+    // swagger
+    implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.6.0")
+
+    // Lombok
+    compileOnly("org.projectlombok:lombok")
+    annotationProcessor("org.projectlombok:lombok")
+    testCompileOnly("org.projectlombok:lombok")
+    testAnnotationProcessor("org.projectlombok:lombok")
+
+    // h2
+    runtimeOnly("com.h2database:h2")
 }
 
 val querydslDir = layout.buildDirectory.dir("generated/sources/annotationProcessor/java/main")
@@ -51,6 +64,13 @@ sourceSets {
         java.srcDir(querydslDir)
     }
 }
+
+dependencyManagement {
+    imports {
+        mavenBom("org.springframework.cloud:spring-cloud-dependencies:2023.0.3") // Spring Cloud 2023.0.x 릴리스
+    }
+}
+
 
 tasks.clean {
     delete(querydslDir)

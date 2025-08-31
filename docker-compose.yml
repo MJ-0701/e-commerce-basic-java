@@ -31,52 +31,62 @@ services:
     command: >
       mysqld
       --character-set-server=utf8mb4
-      --collation-server=utf8mb4_0900_ai_ci
+      --collation-server=utf8mb4_bin
       --default-time-zone=+09:00
       --explicit_defaults_for_timestamp=ON
+      --log-bin-trust-function-creators=1
     ports:
       - "3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
     networks:
       - alla-assignment
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root", "-proot"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 20s
 
-  app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        ENVIRONMENT: local
-    container_name: spring-app
-    depends_on:
-      - mysql
-      - redis
-      - rabbitmq
-    environment:
-      # Spring profile
-      SPRING_PROFILES_ACTIVE: local
-
-      # DB
-      SPRING_MYSQL_HOST: mysql
-      SPRING_MYSQL_DB: code_interview
-      SPRING_MYSQL_USER: user
-      SPRING_MYSQL_PASSWORD: user
-
-      # Redis
-      SPRING_REDIS_HOST: redis
-      SPRING_REDIS_PORT: 6379
-      REDIS_PASSWORD: ""
-
-      # RabbitMQ
-      SPRING_RABBITMQ_HOST: rabbitmq
-      RABBITMQ_PORT: 5672
-      RABBITMQ_USERNAME: ${RABBITMQ_USER:-guest}
-      RABBITMQ_PASSWORD: ${RABBITMQ_PASS:-guest}
-
-    ports:
-      - "8080:8080"
-    networks:
-      - alla-assignment
+#  app:
+#    build:
+#      context: .
+#      dockerfile: Dockerfile
+#      args:
+#        ENVIRONMENT: local
+#    container_name: spring-app
+#    depends_on:
+#      mysql:
+#        condition: service_healthy
+#      redis:
+#        condition: service_started
+#      rabbitmq:
+#        condition: service_started
+#    environment:
+#      # Spring profile
+#      SPRING_PROFILES_ACTIVE: local
+#
+#      # DB
+#      SPRING_MYSQL_HOST: mysql
+#      SPRING_MYSQL_DB: code_interview
+#      SPRING_MYSQL_USER: user
+#      SPRING_MYSQL_PASSWORD: user
+#
+#      # Redis
+#      SPRING_REDIS_HOST: redis
+#      SPRING_REDIS_PORT: 6379
+#      REDIS_PASSWORD: ""
+#
+#      # RabbitMQ
+#      SPRING_RABBITMQ_HOST: rabbitmq
+#      RABBITMQ_PORT: 5672
+#      RABBITMQ_USERNAME: ${RABBITMQ_USER:-guest}
+#      RABBITMQ_PASSWORD: ${RABBITMQ_PASS:-guest}
+#
+#    ports:
+#      - "8080:8080"
+#    networks:
+#      - alla-assignment
 
 volumes:
   mysql_data:

@@ -30,6 +30,7 @@ RUN ./gradlew clean bootJar --no-daemon
 ##############################
 # Runtime Stage
 ##############################
+# --- Runtime Stage ---
 FROM eclipse-temurin:17-jre-jammy
 
 WORKDIR /app
@@ -37,10 +38,9 @@ WORKDIR /app
 ARG ENVIRONMENT
 ENV SPRING_PROFILES_ACTIVE=${ENVIRONMENT}
 
-
-# 빌드 단계에서 생성된 user-service JAR 파일 복사
 COPY --from=builder /app/build/libs/*.jar /app/app.jar
 
 EXPOSE 8080
 
-ENTRYPOINT ["java", "-Dspring.profiles.active=${SPRING_PROFILES_ACTIVE}", "-jar", "app.jar"]
+# ✅ env 확장 위해 shell-form 사용
+ENTRYPOINT exec sh -c 'java -Dspring.profiles.active="${SPRING_PROFILES_ACTIVE}" -jar app.jar'
