@@ -1,3 +1,11 @@
+# 실행 전 안내: 애플리케이션 실행 전에 의존 서비스(DB 서버 및 MQ 서버 – MySQL/Redis/RabbitMQ)를 먼저 기동해주세요.
+```
+docker compose up -d
+```
+
+현재 데이터가 schema.sql 파일 및 data.sql에 있어서 docker 이미지로 app 실행시 데이터 로딩 순서때문에 실행이 안될때가 있습니다. 
+참고하여 Local에서 Postman으로 API테스트를 진행해 주세요.
+
 # 🛍️ Product API (검색) — 테스트 가이드
 
 > 상품 검색 API 테스트용 가이드입니다.  

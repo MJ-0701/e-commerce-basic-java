@@ -29,6 +29,7 @@ public class PaymentTxHistories {
     @JoinColumn(name = "transaction_id", insertable = false, updatable = false)
     private PaymentTransaction paymentTransaction;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "status", columnDefinition = "varchar(50) not null default 'REQUEST'")
     private PaymentStatus status;
 }
