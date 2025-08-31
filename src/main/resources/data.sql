@@ -32,12 +32,12 @@ INSERT INTO product_category (upper_category, category, search_text) VALUES
 
 -- 3) Product (50)  // leaf 카테고리 6..14 순환
 INSERT INTO product (product_name, product_price, product_thumbnail, category_id, is_active, stock) VALUES
-                                                                                                        ('Product 001',1100,'https://example.com/thumbs/p1.jpg',6, FALSE, 100),
+                                                                                                        ('Product 001',1100,'https://example.com/thumbs/p1.jpg',6, FALSE, 10),
                                                                                                         ('Product 002',1200,'https://example.com/thumbs/p2.jpg',7, FALSE, 0),
-                                                                                                        ('Product 003',1300,'https://example.com/thumbs/p3.jpg',8, TRUE, 320),
-                                                                                                        ('Product 004',1400,'https://example.com/thumbs/p4.jpg',9, TRUE, 250),
-                                                                                                        ('Product 005',1500,'https://example.com/thumbs/p5.jpg',10, FALSE, 0),
-                                                                                                        ('Product 006',1600,'https://example.com/thumbs/p6.jpg',11, TRUE, 410),
+                                                                                                        ('Product 003',1300,'https://example.com/thumbs/p3.jpg',8, TRUE, 3),
+                                                                                                        ('Product 004',1400,'https://example.com/thumbs/p4.jpg',9, TRUE, 2),
+                                                                                                        ('Product 005',1500,'https://example.com/thumbs/p5.jpg',10, FALSE, 1),
+                                                                                                        ('Product 006',1600,'https://example.com/thumbs/p6.jpg',11, TRUE, 41),
                                                                                                         ('Product 007',1700,'https://example.com/thumbs/p7.jpg',12, TRUE, 65),
                                                                                                         ('Product 008',1800,'https://example.com/thumbs/p8.jpg',13, TRUE, 230),
                                                                                                         ('Product 009',1900,'https://example.com/thumbs/p9.jpg',14, FALSE, 0),
