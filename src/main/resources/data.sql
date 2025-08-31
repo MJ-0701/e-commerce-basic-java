@@ -32,7 +32,7 @@ INSERT INTO product_category (upper_category, category, search_text) VALUES
 
 -- 3) Product (50)  // leaf 카테고리 6..14 순환
 INSERT INTO product (product_name, product_price, product_thumbnail, category_id, is_active, stock) VALUES
-                                                                                                        ('Product 001',1100,'https://example.com/thumbs/p1.jpg',6, FALSE, 10),
+                                                                                                        ('Product 001',1100,'https://example.com/thumbs/p1.jpg',6, TRUE, 10),
                                                                                                         ('Product 002',1200,'https://example.com/thumbs/p2.jpg',7, FALSE, 0),
                                                                                                         ('Product 003',1300,'https://example.com/thumbs/p3.jpg',8, TRUE, 3),
                                                                                                         ('Product 004',1400,'https://example.com/thumbs/p4.jpg',9, TRUE, 2),
